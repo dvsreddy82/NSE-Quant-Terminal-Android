@@ -1,0 +1,161 @@
+package com.ravikiran.nsequant.monitor
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
+import com.ravikiran.nsequant.MainActivity
+import com.ravikiran.nsequant.R
+import com.ravikiran.nsequant.data.Api
+import com.ravikiran.nsequant.data.Fmt
+import com.ravikiran.nsequant.data.Prefs
+import com.ravikiran.nsequant.data.arr
+import com.ravikiran.nsequant.data.d
+import com.ravikiran.nsequant.data.objects
+import com.ravikiran.nsequant.data.s
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
+/**
+ * Market monitor: an ongoing notification with live BANKNIFTY / NIFTY / VIX (like the Mac's
+ * menu-bar ticker, every 5 s) and a high-priority notification for every new alert from the Mac
+ * (RED risk alerts, the evening setup, BANKNIFTY breadth, EXIT on your positions; checked every 30 s).
+ */
+class MonitorService : Service() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            Prefs.setMonitor(this, false)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        channels()
+        val n = ticker("Connecting to your Mac…", "")
+        ServiceCompat.startForeground(this, TICKER_ID, n,
+            if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0)
+        if (!running) {
+            running = true
+            scope.launch { tickerLoop() }
+            scope.launch { alertLoop() }
+        }
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        running = false
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    private suspend fun tickerLoop() {
+        val nm = getSystemService(NotificationManager::class.java)
+        while (scope.isActive) {
+            try {
+                val t = Api.get(this, "/api/ticker")
+                val q = t.arr("quotes").objects()
+                val bnf = q.firstOrNull { it.s("symbol") == "NIFTY BANK" }
+                val title = bnf?.let {
+                    "BNF ${Fmt.px(it.d("last"))}  ${arrow(it.d("chg"))}${Fmt.px1(it.d("chg")?.let { c -> kotlin.math.abs(c) })} " +
+                        "(${Fmt.pct(it.d("pct"))})"
+                } ?: "BANKNIFTY —"
+                val rest = q.filter { it.s("symbol") != "NIFTY BANK" }.joinToString("   ") {
+                    "${if (it.s("symbol") == "^NSEI") "NIFTY" else "VIX"} ${Fmt.px(it.d("last"))} ${Fmt.pct(it.d("pct"))}"
+                }
+                val extra = buildList {
+                    t.d("book_pnl")?.let { add("P&L ${Fmt.rupees(it)}") }
+                    (t.d("red") ?: 0.0).toInt().takeIf { it > 0 }?.let { add("⚠ $it RED") }
+                    when (t.s("setup")) { "up" -> add("⚑▲ setup"); "down" -> add("⚑▼ setup") }
+                }.joinToString(" · ")
+                nm.notify(TICKER_ID, ticker(title, listOf(rest, extra).filter { it.isNotBlank() }.joinToString("\n")))
+            } catch (e: Exception) {
+                nm.notify(TICKER_ID, ticker("Waiting for your Mac", e.message ?: ""))
+            }
+            delay(5_000)
+        }
+    }
+
+    private suspend fun alertLoop() {
+        val nm = getSystemService(NotificationManager::class.java)
+        while (scope.isActive) {
+            try {
+                val items = Api.get(this, "/api/alerts").arr("alerts").objects()
+                val seen = Prefs.seen(this)
+                items.filter { (it.s("id") ?: "") !in seen }.forEach { a ->
+                    val id = a.s("id") ?: return@forEach
+                    nm.notify(id.hashCode(), NotificationCompat.Builder(this, CH_ALERTS)
+                        .setSmallIcon(R.drawable.ic_stat_ticker)
+                        .setContentTitle("${tag(a.s("level"))} ${a.s("title")}")
+                        .setContentText(a.s("text"))
+                        .setStyle(NotificationCompat.BigTextStyle().bigText("${a.s("text")}\n— ${a.s("source")}"))
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setCategory(NotificationCompat.CATEGORY_ALARM)
+                        .setContentIntent(openApp())
+                        .setAutoCancel(true)
+                        .build())
+                    seen.add(id)
+                }
+                Prefs.setSeen(this, seen)
+            } catch (_: Exception) {
+            }
+            delay(30_000)
+        }
+    }
+
+    private fun tag(level: String?) = when (level) { "RED" -> "🔴"; "AMBER" -> "🟠"; "SETUP" -> "⚑"; else -> "•" }
+    private fun arrow(v: Double?) = if ((v ?: 0.0) >= 0) "▲" else "▼"
+
+    private fun ticker(title: String, text: String): Notification =
+        NotificationCompat.Builder(this, CH_TICKER)
+            .setSmallIcon(R.drawable.ic_stat_ticker)
+            .setContentTitle(title)
+            .setContentText(text.lineSequence().firstOrNull() ?: "")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setContentIntent(openApp())
+            .addAction(0, "Stop monitor", PendingIntent.getService(this, 1,
+                Intent(this, MonitorService::class.java).setAction(ACTION_STOP),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            .build()
+
+    private fun openApp(): PendingIntent = PendingIntent.getActivity(this, 0,
+        Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+    private fun channels() {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(CH_TICKER, "Live ticker", NotificationManager.IMPORTANCE_LOW)
+            .apply { description = "BANKNIFTY / NIFTY / VIX, updated every few seconds"; setShowBadge(false) })
+        nm.createNotificationChannel(NotificationChannel(CH_ALERTS, "Risk alerts", NotificationManager.IMPORTANCE_HIGH)
+            .apply { description = "RED risk alerts, evening setups, EXIT signals on your positions" })
+    }
+
+    companion object {
+        private const val CH_TICKER = "ticker"
+        private const val CH_ALERTS = "alerts"
+        private const val TICKER_ID = 1001
+        private const val ACTION_STOP = "stop"
+        @Volatile private var running = false
+
+        fun start(ctx: Context) = ContextCompat.startForegroundService(ctx, Intent(ctx, MonitorService::class.java))
+        fun stop(ctx: Context) { ctx.stopService(Intent(ctx, MonitorService::class.java)) }
+    }
+}
