@@ -25,6 +25,7 @@ import com.ravikiran.nsequant.data.Fmt
 import com.ravikiran.nsequant.data.Prefs
 import com.ravikiran.nsequant.data.arr
 import com.ravikiran.nsequant.data.d
+import com.ravikiran.nsequant.data.obj
 import com.ravikiran.nsequant.data.objects
 import com.ravikiran.nsequant.data.s
 import com.ravikiran.nsequant.widget.BnfWidget
@@ -38,8 +39,10 @@ import kotlinx.coroutines.launch
 
 /**
  * Market monitor: an ongoing notification with live BANKNIFTY / NIFTY / VIX (like the Mac's
- * menu-bar ticker, every 5 s) and a high-priority notification for every new alert from the Mac
- * (RED risk alerts, the evening setup, BANKNIFTY breadth, EXIT on your positions; checked every 30 s).
+ * menu-bar ticker, every 5 s) and a notification for every new alert from the Mac, checked every
+ * 30 s: RED risk alerts, level breaks, global moves, the evening setup, BANKNIFTY breadth, EXIT on
+ * your positions and HIGH-impact news (high priority), plus the 15-minute direction calls (one
+ * per index, replaced each time, with sound only when the direction changes).
  */
 class MonitorService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -95,6 +98,12 @@ class MonitorService : Service() {
                     "${if (it.s("symbol") == "^NSEI") "NIFTY" else "VIX"} ${Fmt.px(it.d("last"))} ${Fmt.pct(it.d("pct"))}"
                 }
                 val extra = buildList {
+                    t.obj("direction")?.let { d ->
+                        val m = mapOf("BULLISH" to "▲", "BEARISH" to "▼", "SIDEWAYS" to "↔")
+                        listOf("NIFTY" to "N", "BANKNIFTY" to "BNF").mapNotNull { (k, ab) -> d.s(k)?.let { "$ab ${m[it] ?: it}" } }
+                            .takeIf { it.isNotEmpty() }?.let { add("Dir " + it.joinToString(" ")) }
+                    }
+                    t.s("global_read")?.let { add("🌐 $it") }
                     t.d("book_pnl")?.let { add("P&L ${Fmt.rupees(it)}") }
                     (t.d("red") ?: 0.0).toInt().takeIf { it > 0 }?.let { add("⚠ $it RED") }
                     when (t.s("setup")) { "up" -> add("⚑▲ setup"); "down" -> add("⚑▼ setup") }
@@ -114,7 +123,37 @@ class MonitorService : Service() {
             try {
                 val items = Api.get(this, "/api/alerts").arr("alerts").objects()
                 val seen = Prefs.seen(this)
-                items.filter { (it.s("id") ?: "") !in seen }.forEach { a ->
+                val fresh = items.filter { (it.s("id") ?: "") !in seen }
+                // 15-minute direction calls: one notification per index, replaced each time; sound only on a change
+                fresh.filter { it.s("level") == "DIRECTION" }.forEach { a ->
+                    val id = a.s("id") ?: return@forEach
+                    nm.notify(if ((a.s("title") ?: "").startsWith("BANKNIFTY")) DIR_BNF_ID else DIR_NIFTY_ID,
+                        NotificationCompat.Builder(this, CH_DIRECTION)
+                            .setSmallIcon(R.drawable.ic_stat_ticker)
+                            .setContentTitle("➚ ${a.s("title")}")
+                            .setContentText(a.s("text"))
+                            .setStyle(NotificationCompat.BigTextStyle().bigText(a.s("text")))
+                            .setSilent(!a.optBoolean("changed"))
+                            .setContentIntent(openApp())
+                            .setAutoCancel(true)
+                            .build())
+                    seen.add(id)
+                }
+                // many global moves at once (e.g. an overnight sell-off): one summary instead of a flood
+                val glb = fresh.filter { it.s("level") == "GLOBAL" }
+                if (glb.size > 3) {
+                    nm.notify(GLOBAL_SUM_ID, NotificationCompat.Builder(this, CH_ALERTS)
+                        .setSmallIcon(R.drawable.ic_stat_ticker)
+                        .setContentTitle("🌐 Global markets · ${glb.size} major moves")
+                        .setContentText(glb.joinToString(" · ") { it.s("title") ?: "" })
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(glb.joinToString("\n") { it.s("title") ?: "" }))
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setContentIntent(openApp())
+                        .setAutoCancel(true)
+                        .build())
+                    glb.forEach { seen.add(it.s("id") ?: "") }
+                }
+                fresh.filter { (it.s("id") ?: "") !in seen }.forEach { a ->
                     val id = a.s("id") ?: return@forEach
                     nm.notify(id.hashCode(), NotificationCompat.Builder(this, CH_ALERTS)
                         .setSmallIcon(R.drawable.ic_stat_ticker)
@@ -136,7 +175,7 @@ class MonitorService : Service() {
     }
 
     private fun tag(level: String?) = when (level) {
-        "RED" -> "🔴"; "AMBER" -> "🟠"; "SETUP" -> "⚑"; "NEWS" -> "📰"; else -> "•"
+        "RED" -> "🔴"; "AMBER" -> "🟠"; "SETUP" -> "⚑"; "NEWS" -> "📰"; "GLOBAL" -> "🌐"; "LEVEL" -> "📉"; else -> "•"
     }
 
     private fun openLink(url: String, id: String): PendingIntent = PendingIntent.getActivity(this, id.hashCode(),
@@ -226,13 +265,19 @@ class MonitorService : Service() {
                 lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             })
         nm.createNotificationChannel(NotificationChannel(CH_ALERTS, "Risk alerts", NotificationManager.IMPORTANCE_HIGH)
-            .apply { description = "RED risk alerts, evening setups, EXIT signals on your positions" })
+            .apply { description = "RED risk alerts, level breaks, global moves, evening setups, EXIT signals" })
+        nm.createNotificationChannel(NotificationChannel(CH_DIRECTION, "Direction calls", NotificationManager.IMPORTANCE_DEFAULT)
+            .apply { description = "NIFTY / BANKNIFTY direction every 15 minutes in market hours (sound when it changes)" })
     }
 
     companion object {
         private const val CH_TICKER = "ticker_live"
         private const val CH_ALERTS = "alerts"
+        private const val CH_DIRECTION = "direction"
         private const val TICKER_ID = 1001
+        private const val DIR_NIFTY_ID = 1101
+        private const val DIR_BNF_ID = 1102
+        private const val GLOBAL_SUM_ID = 1103
         private const val ACTION_STOP = "stop"
         @Volatile private var running = false
 

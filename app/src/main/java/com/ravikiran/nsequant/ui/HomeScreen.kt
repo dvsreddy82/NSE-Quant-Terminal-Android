@@ -35,6 +35,8 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
     val alerts = rememberApi("/api/alerts", 20_000)
     val pos = rememberApi("/api/positions", 30_000)
     val news = rememberApi("/api/news?hours=12&limit=40", 60_000)
+    val signals = rememberApi("/api/signals", 60_000)
+    val global = rememberApi("/api/global", 120_000)
     val uri = LocalUriHandler.current
 
     LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
@@ -46,12 +48,16 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Market monitor", fontWeight = FontWeight.Bold)
-                        Text("Live BANKNIFTY in the notification bar + alerts for new RED / setup signals",
+                        Text("Live BANKNIFTY in the notification bar + alerts: risk, level breaks, " +
+                            "15-min direction calls, global moves, news",
                             color = Pal.muted, fontSize = 12.sp)
                     }
                     Switch(checked = monitorOn, onCheckedChange = onMonitor)
                 }
             }
+        }
+        item {
+            signals.data?.let { s -> SignalsBlock(s) }
         }
         item {
             alerts.data?.let { a ->
@@ -76,6 +82,9 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
         }
         item {
             pos.data?.let { p -> PositionsBlock(p) }
+        }
+        item {
+            global.data?.let { g -> GlobalBlock(g) }
         }
         item {
             overview.data?.let { o ->

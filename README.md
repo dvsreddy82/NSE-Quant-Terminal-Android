@@ -7,7 +7,7 @@ The Mac app stays in charge of everything: the single Shoonya session (Shoonya a
 ## Screens
 | Tab | What it shows |
 |---|---|
-| **Home** | Market news (high and medium impact, tap to open). Live BANKNIFTY / NIFTY / VIX, open P&L, RED count and setup flag. The **Market monitor** switch. Every active alert. Your positions with EXIT / WATCH / BOOK checks and leg P&L. The indices Shoonya streams. A one-line FII/DII summary. |
+| **Home** | The 15-minute direction call for NIFTY and BANKNIFTY (with the writing idea, nearest support / resistance and today's hit rate) and level breaks. Market news (high and medium impact, tap to open). Live BANKNIFTY / NIFTY / VIX, open P&L, RED count and setup flag. The **Market monitor** switch. Every active alert. Your positions with EXIT / WATCH / BOOK checks and leg P&L. Global markets with the read for India's open. The indices Shoonya streams. A one-line FII/DII summary. |
 | **BANKNIFTY** | Index with breadth (banks up/down, % of weight up), lifters and draggers. Heatmap sized by weight. Points each bank adds to the index. Alerts. Every bank with weight, LTP, % change, points, VWAP gap, relative volume and a sparkline. |
 | **Chain** | NIFTY / BANKNIFTY: ATM IV, straddle, ±1σ, PCR (OI and change in OI), max pain, OI support and resistance, fresh writing. A mirrored chain (±15 strikes) with OI bars, change in OI, ITM shading, strike PCR and the spot divider. |
 | **Risk** | Writer risk monitor for both indices: threat matrix, colour-coded alerts with the exact signals, prohibitions, safe zones, and guidance for your legs. |
@@ -24,7 +24,8 @@ The Mac app stays in charge of everything: the single Shoonya session (Shoonya a
 
 **Market monitor** (a foreground service) does two things:
 * It keeps an ongoing notification like the Mac's menu-bar ticker, refreshed every 5 s, for example `BNF 57,813.15 ▲39.5 (+0.07%)`, with NIFTY, VIX, P&L, ⚠ RED count and ⚑ setup flag.
-* Every 30 s it checks the Mac's alerts and raises a **high-priority notification** for each new one: RED risk alerts, the evening setup, BANKNIFTY breadth warnings, EXIT on your positions, and HIGH-impact market news (tap to open the article). Each alert notifies once.
+* Every 30 s it checks the Mac's alerts and raises a **high-priority notification** for each new one: RED risk alerts, **support / resistance breaks** on NIFTY and BANKNIFTY, **major global moves** (several at once arrive as one summary), the evening setup, BANKNIFTY breadth warnings, EXIT on your positions, and HIGH-impact market news (tap to open the article). Each alert notifies once.
+* The **15-minute direction calls** arrive on their own "Direction calls" channel: one notification per index, replaced each time, with sound only when the direction changes. The ticker notification also shows the current calls (e.g. `Dir N ▲ BNF ↔`) and the global read.
 
 ## Set up
 1. **On the Mac:** run NSE Quant Terminal (the .app or `python app.py`). Open **Sync ▾ → Connect phone (Android app)…**, which shows the server address (e.g. `http://192.168.1.10:8787`) and the API key.
@@ -68,6 +69,8 @@ Every request is `GET` with `Authorization: Bearer <key>`:
 | `/api/fii` | FII/DII read, setup, zones, signals, recent sessions |
 | `/api/positions` | open positions, today's P&L, margin |
 | `/api/news` | relevant headlines with impact, tags and tone |
-| `/api/alerts` | active alerts with stable ids, including HIGH-impact news |
+| `/api/signals` | latest direction call per index, today's calls with grades, key levels, level breaks |
+| `/api/global` | world markets, the read for India's open, global alerts |
+| `/api/alerts` | active alerts with stable ids, including HIGH-impact news, level breaks, global moves and direction calls |
 
 Read-only analytics, not investment advice.
