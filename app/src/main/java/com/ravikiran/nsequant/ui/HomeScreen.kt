@@ -1,5 +1,6 @@
 package com.ravikiran.nsequant.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,6 +25,7 @@ import com.ravikiran.nsequant.data.d
 import com.ravikiran.nsequant.data.obj
 import com.ravikiran.nsequant.data.objects
 import com.ravikiran.nsequant.data.s
+import com.ravikiran.nsequant.data.strings
 import org.json.JSONObject
 
 @Composable
@@ -31,6 +34,8 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
     val overview = rememberApi("/api/overview", 10_000)
     val alerts = rememberApi("/api/alerts", 20_000)
     val pos = rememberApi("/api/positions", 30_000)
+    val news = rememberApi("/api/news?hours=12&limit=40", 60_000)
+    val uri = LocalUriHandler.current
 
     LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp)) {
         item {
@@ -61,6 +66,15 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
             }
         }
         item {
+            news.data?.let { n ->
+                val items = n.arr("items").objects().filter { it.s("impact") != "LOW" }.take(12)
+                Section("Market news (last 12 h)") {
+                    if (items.isEmpty()) Text("No high- or medium-impact headlines.", color = Pal.muted, fontSize = 12.sp)
+                    items.forEach { x -> NewsRow(x) { x.s("link")?.let { runCatching { uri.openUri(it) } } } }
+                }
+            }
+        }
+        item {
             pos.data?.let { p -> PositionsBlock(p) }
         }
         item {
@@ -85,6 +99,26 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NewsRow(x: JSONObject, onOpen: () -> Unit) {
+    val impact = x.s("impact") ?: ""
+    val (fg, bg) = if (impact == "HIGH") Pal.down to Pal.redBg else Pal.warn to Pal.amberBg
+    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Badge(impact, fg, bg)
+            val tone = x.s("tone")
+            Text(when (tone) { "positive" -> "▲"; "negative" -> "▼"; else -> "•" },
+                color = when (tone) { "positive" -> Pal.up; "negative" -> Pal.down; else -> Pal.muted }, fontSize = 12.sp)
+            Text(x.s("published")?.let { if (it.length >= 16) it.substring(11, 16) + " UTC" else it } ?: "",
+                color = Pal.faint, fontSize = 10.sp)
+            Text(x.arr("tags").strings().joinToString(" · "), color = Pal.faint, fontSize = 10.sp)
+        }
+        Text((if (x.b("alerted")) "🔔 " else "") + (x.s("title") ?: ""), fontSize = 13.sp,
+            fontWeight = if (impact == "HIGH") FontWeight.SemiBold else FontWeight.Normal)
+        Text(x.arr("sources").strings().joinToString(", "), color = Pal.faint, fontSize = 10.sp)
     }
 }
 

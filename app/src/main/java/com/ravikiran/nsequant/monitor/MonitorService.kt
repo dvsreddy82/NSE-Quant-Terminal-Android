@@ -114,7 +114,7 @@ class MonitorService : Service() {
                         .setStyle(NotificationCompat.BigTextStyle().bigText("${a.s("text")}\n— ${a.s("source")}"))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_ALARM)
-                        .setContentIntent(openApp())
+                        .setContentIntent(a.s("link")?.takeIf { it.startsWith("http") }?.let { openLink(it, id) } ?: openApp())
                         .setAutoCancel(true)
                         .build())
                     seen.add(id)
@@ -126,7 +126,12 @@ class MonitorService : Service() {
         }
     }
 
-    private fun tag(level: String?) = when (level) { "RED" -> "🔴"; "AMBER" -> "🟠"; "SETUP" -> "⚑"; else -> "•" }
+    private fun tag(level: String?) = when (level) {
+        "RED" -> "🔴"; "AMBER" -> "🟠"; "SETUP" -> "⚑"; "NEWS" -> "📰"; else -> "•"
+    }
+
+    private fun openLink(url: String, id: String): PendingIntent = PendingIntent.getActivity(this, id.hashCode(),
+        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     private fun arrow(v: Double?) = if ((v ?: 0.0) >= 0) "▲" else "▼"
 
     /**
