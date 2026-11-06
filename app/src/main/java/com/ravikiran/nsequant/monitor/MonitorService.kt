@@ -123,7 +123,8 @@ class MonitorService : Service() {
             try {
                 val items = Api.get(this, "/api/alerts").arr("alerts").objects()
                 val seen = Prefs.seen(this)
-                val fresh = items.filter { (it.s("id") ?: "") !in seen }
+                // oldest first, so the newest lands on top of the notification shade
+                val fresh = items.filter { (it.s("id") ?: "") !in seen }.sortedBy { it.s("at") ?: "" }
                 // 15-minute direction calls: one notification per index, replaced each time; sound only on a change
                 fresh.filter { it.s("level") == "DIRECTION" }.forEach { a ->
                     val id = a.s("id") ?: return@forEach
@@ -157,6 +158,8 @@ class MonitorService : Service() {
                     val id = a.s("id") ?: return@forEach
                     nm.notify(id.hashCode(), NotificationCompat.Builder(this, CH_ALERTS)
                         .setSmallIcon(R.drawable.ic_stat_ticker)
+                        .setWhen(epoch(a.s("at")))
+                        .setShowWhen(true)
                         .setContentTitle("${tag(a.s("level"))} ${a.s("title")}")
                         .setContentText(a.s("text"))
                         .setStyle(NotificationCompat.BigTextStyle().bigText("${a.s("text")}\n— ${a.s("source")}"))
@@ -172,6 +175,12 @@ class MonitorService : Service() {
             }
             delay(30_000)
         }
+    }
+
+    private fun epoch(iso: String?): Long = try {
+        java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+    } catch (_: Exception) {
+        System.currentTimeMillis()
     }
 
     private fun tag(level: String?) = when (level) {

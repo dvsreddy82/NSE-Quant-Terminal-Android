@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -48,6 +49,7 @@ import com.ravikiran.nsequant.ui.AppTheme
 import com.ravikiran.nsequant.ui.BankNiftyScreen
 import com.ravikiran.nsequant.ui.ChainScreen
 import com.ravikiran.nsequant.ui.FiiScreen
+import com.ravikiran.nsequant.ui.GlobalScreen
 import com.ravikiran.nsequant.ui.HomeScreen
 import com.ravikiran.nsequant.ui.Pal
 import com.ravikiran.nsequant.ui.RiskScreen
@@ -77,6 +79,7 @@ private val TABS = listOf(
     Tab("chain", "Chain", Icons.AutoMirrored.Filled.List),
     Tab("risk", "Risk", Icons.Filled.Warning),
     Tab("fii", "FII/DII", Icons.Filled.Info),
+    Tab("global", "Global", Icons.Filled.Place),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,6 +134,7 @@ private fun App(startTab: MutableState<String>) {
                 "chain" -> ChainScreen()
                 "risk" -> RiskScreen()
                 "fii" -> FiiScreen()
+                "global" -> GlobalScreen()
             }
         }
     }

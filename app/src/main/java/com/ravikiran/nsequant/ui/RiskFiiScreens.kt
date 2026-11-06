@@ -22,6 +22,7 @@ import com.ravikiran.nsequant.data.Fmt
 import com.ravikiran.nsequant.data.arr
 import com.ravikiran.nsequant.data.b
 import com.ravikiran.nsequant.data.d
+import com.ravikiran.nsequant.data.doubles
 import com.ravikiran.nsequant.data.obj
 import com.ravikiran.nsequant.data.objects
 import com.ravikiran.nsequant.data.s
@@ -40,13 +41,57 @@ fun RiskScreen() {
                 Text("The Mac is running the first risk check — this fills in within a minute.", color = Pal.muted,
                     modifier = Modifier.padding(16.dp))
             }
+            d.obj("account")?.let { a -> item { AccountBlock(a) } }
             listOf("NIFTY", "BANKNIFTY").forEach { und ->
                 val r = idx.obj(und) ?: return@forEach
                 item { RiskBlock(und, r) }
+                r.arr("books").objects().forEach { b -> item { BookBlock(b) } }
             }
             item {
                 Text("Mechanical screens on exchange data using your rule set — not a forecast or advice.",
                     color = Pal.faint, fontSize = 10.sp, modifier = Modifier.padding(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountBlock(a: JSONObject) {
+    Section("Account limits") {
+        KV("Capital", "₹${Fmt.int(a.d("capital"))}")
+        KV("Today's P&L (limit −₹${Fmt.int(a.d("daily_limit"))})", Fmt.rupees(a.d("day_pnl")), Pal.chg(a.d("day_pnl")))
+        KV("Margin in use", a.d("margin_use_pct")?.let { String.format("%.0f%%", it) } ?: "—")
+        a.obj("move_2pct")?.let { m ->
+            KV("All books if index −2% / +2% now", "${Fmt.rupees(m.d("down"))} / ${Fmt.rupees(m.d("up"))}")
+        }
+        KV("Theta (per day) · Vega (per IV pt)", "${Fmt.rupees(a.d("theta_day"))} · ${Fmt.rupees(a.d("vega"))}")
+        a.arr("alerts").objects().forEach { x -> AlertCard(x.s("level") ?: "", x.s("title") ?: "", listOfNotNull(x.s("text"))) }
+    }
+}
+
+@Composable
+private fun BookBlock(b: JSONObject) {
+    Section("${b.s("und")} ${b.s("expiry")} · my book") {
+        Text("${b.s("structure")} · ${b.d("dte")?.toInt()} DTE · credit ₹${Fmt.int(b.d("credit"))}", color = Pal.muted, fontSize = 11.sp)
+        KV("P&L now", Fmt.rupees(b.d("pnl_now")), Pal.chg(b.d("pnl_now")))
+        KV("Net delta", "${Fmt.int(b.d("delta"))} (${Fmt.signed(b.d("delta_lots"), 1)} lots) → ${Fmt.rupees(b.d("per_100"))}/+100")
+        KV("Theta / day · Vega / IV pt", "${Fmt.rupees(b.d("theta"))} · ${Fmt.rupees(b.d("vega"))}")
+        KV("Breakeven at expiry", b.arr("breakevens").doubles().joinToString(", ") { Fmt.int(it) }.ifEmpty { "—" })
+        KV("Max profit / max loss", "${b.d("max_profit")?.let { Fmt.rupees(it) } ?: "unlimited"} / " +
+            (b.d("max_loss")?.let { Fmt.rupees(it) } ?: "unlimited"))
+        KV("Chance of profit at expiry", "${b.d("pop")?.toInt()}% · expected ${Fmt.rupees(b.d("expected_pnl"))}",
+            if ((b.d("pop") ?: 0.0) >= 50) Pal.up else Pal.down)
+        KV("At expiry: −1σ / unchanged / +1σ", "${Fmt.rupees(b.d("pnl_expiry_dn1s"))} / ${Fmt.rupees(b.d("pnl_expiry_spot"))} / " +
+            Fmt.rupees(b.d("pnl_expiry_up1s")))
+        Text("P&L if the index moves now (IV same)", color = Pal.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        val moves = b.arr("moves").doubles()
+        val grid = b.arr("grid").objects().firstOrNull()?.arr("pnl")?.doubles() ?: emptyList()
+        moves.zip(grid).chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { (m, v) ->
+                    Text("${String.format("%+.0f%%", m * 100)}: ${Fmt.rupees(v)}", Modifier.weight(1f), fontSize = 11.sp,
+                        color = Pal.chg(v))
+                }
             }
         }
     }

@@ -61,12 +61,12 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
         }
         item {
             alerts.data?.let { a ->
-                val items = a.arr("alerts").objects()
-                Section("Active alerts (${items.size})") {
+                val items = a.arr("alerts").objects().sortedByDescending { it.s("at") ?: "" }    // newest first
+                Section("Active alerts (${items.size}) · newest first") {
                     if (items.isEmpty()) Text("None right now.", color = Pal.muted, fontSize = 12.sp)
                     items.forEach { x ->
                         AlertCard(x.s("level") ?: "", x.s("title") ?: "", listOfNotNull(x.s("text")),
-                            x.s("source"))
+                            listOfNotNull(hhmm(x.s("at")), x.s("source")).joinToString(" · "))
                     }
                 }
             }
@@ -109,6 +109,15 @@ fun HomeScreen(monitorOn: Boolean, onMonitor: (Boolean) -> Unit) {
             }
         }
     }
+}
+
+/** "2026-11-06T16:25:00+05:30" → "16:25" today, "06 Nov 16:25" otherwise (the Mac sends IST). */
+fun hhmm(iso: String?): String? {
+    if (iso == null || iso.length < 16) return null
+    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    val t = iso.substring(11, 16)
+    return if (iso.startsWith(today)) t else "${iso.substring(8, 10)} ${months[iso.substring(5, 7).toInt() - 1]} $t"
 }
 
 @Composable

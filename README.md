@@ -7,10 +7,11 @@ The Mac app stays in charge of everything: the single Shoonya session (Shoonya a
 ## Screens
 | Tab | What it shows |
 |---|---|
-| **Home** | The 15-minute direction call for NIFTY and BANKNIFTY (with the writing idea, nearest support / resistance and today's hit rate) and level breaks. Market news (high and medium impact, tap to open). Live BANKNIFTY / NIFTY / VIX, open P&L, RED count and setup flag. The **Market monitor** switch. Every active alert. Your positions with EXIT / WATCH / BOOK checks and leg P&L. Global markets with the read for India's open. The indices Shoonya streams. A one-line FII/DII summary. |
+| **Home** | The 15-minute direction call for NIFTY and BANKNIFTY (with the writing idea, nearest support / resistance and today's hit rate) and level breaks. Market news (high and medium impact, tap to open). Live BANKNIFTY / NIFTY / VIX, open P&L, RED count and setup flag. The **Market monitor** switch. Every active alert, newest first with its time. Your positions with EXIT / WATCH / BOOK checks and leg P&L. Global markets with the read for India's open. The indices Shoonya streams. A one-line FII/DII summary. |
 | **BANKNIFTY** | Index with breadth (banks up/down, % of weight up), lifters and draggers. Heatmap sized by weight. Points each bank adds to the index. Alerts. Every bank with weight, LTP, % change, points, VWAP gap, relative volume and a sparkline. |
 | **Chain** | NIFTY / BANKNIFTY: ATM IV, straddle, ±1σ, PCR (OI and change in OI), max pain, OI support and resistance, fresh writing. A mirrored chain (±15 strikes) with OI bars, change in OI, ITM shading, strike PCR and the spot divider. |
-| **Risk** | Writer risk monitor for both indices: threat matrix, colour-coded alerts with the exact signals, prohibitions, safe zones, and guidance for your legs. |
+| **Risk** | Account limits (today's loss vs limit, margin in use, all books on a ±2% move). Writer risk monitor for both indices: threat matrix, colour-coded alerts with the exact signals, prohibitions, safe zones, guidance for your legs, and **your book**: net delta, theta, vega, breakevens, max loss, chance of profit and P&L for index moves of −4% … +4%. |
+| **Global** | The read for India's open, global alerts (newest first) and every world market by group with today's sparkline: US futures and indices, Asia, Europe, crude, dollar, US 10Y, USD/INR, gold, US VIX. |
 | **FII/DII** | Evening squeeze-loading setup (conditions, track record, exposed side). Positioning read and writing posture. Strike zones. All signals. Recent sessions. |
 
 **Home-screen widget (BANKNIFTY):** long-press the home screen → Widgets → NSE Quant → BANKNIFTY.
