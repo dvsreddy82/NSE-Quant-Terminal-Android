@@ -8,11 +8,16 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.IconCompat
 import com.ravikiran.nsequant.MainActivity
 import com.ravikiran.nsequant.R
 import com.ravikiran.nsequant.data.Api
@@ -71,6 +76,8 @@ class MonitorService : Service() {
                 val t = Api.get(this, "/api/ticker")
                 val q = t.arr("quotes").objects()
                 val bnf = q.firstOrNull { it.s("symbol") == "NIFTY BANK" }
+                val iq = q.firstOrNull { it.s("symbol") == Prefs.iconIndex(this@MonitorService) } ?: bnf
+                val icon = iq?.let { statusIcon(it.d("last"), it.d("chg"), it.d("pct"), Prefs.iconMode(this@MonitorService)) }
                 val title = bnf?.let {
                     "BNF ${Fmt.px(it.d("last"))}  ${arrow(it.d("chg"))}${Fmt.px1(it.d("chg")?.let { c -> kotlin.math.abs(c) })} " +
                         "(${Fmt.pct(it.d("pct"))})"
@@ -83,7 +90,8 @@ class MonitorService : Service() {
                     (t.d("red") ?: 0.0).toInt().takeIf { it > 0 }?.let { add("⚠ $it RED") }
                     when (t.s("setup")) { "up" -> add("⚑▲ setup"); "down" -> add("⚑▼ setup") }
                 }.joinToString(" · ")
-                nm.notify(TICKER_ID, ticker(title, listOf(rest, extra).filter { it.isNotBlank() }.joinToString("\n")))
+                nm.notify(TICKER_ID, ticker(title, listOf(rest, extra).filter { it.isNotBlank() }.joinToString("\n"),
+                    icon, rest))
             } catch (e: Exception) {
                 nm.notify(TICKER_ID, ticker("Waiting for your Mac", e.message ?: ""))
             }
@@ -121,9 +129,58 @@ class MonitorService : Service() {
     private fun tag(level: String?) = when (level) { "RED" -> "🔴"; "AMBER" -> "🟠"; "SETUP" -> "⚑"; else -> "•" }
     private fun arrow(v: Double?) = if ((v ?: 0.0) >= 0) "▲" else "▼"
 
-    private fun ticker(title: String, text: String): Notification =
-        NotificationCompat.Builder(this, CH_TICKER)
-            .setSmallIcon(R.drawable.ic_stat_ticker)
+    /**
+     * The status-bar icon IS the price: a white-on-transparent bitmap redrawn every update, so the
+     * move is visible at the top of the screen at all times, including on the lock screen
+     * (Android tints small icons, so it's shape-only: no green / red).
+     */
+    private fun statusIcon(last: Double?, chg: Double?, pct: Double?, mode: String): IconCompat? {
+        last ?: return null
+        val size = 128
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+        }
+        val price = if (last >= 10_000) String.format("%.1fK", last / 1000) else String.format("%.0f", last)
+        val pc = pct?.let { String.format("%+.2f", it) } ?: "-"
+        val pts = chg?.let { String.format("%+.0f", it) } ?: "-"
+        fun fit(text: String, maxH: Float) {
+            p.textSize = maxH
+            val w = p.measureText(text)
+            if (w > size - 4) p.textSize = maxH * (size - 4) / w
+        }
+        when (mode) {
+            "pct", "points" -> {
+                val t = if (mode == "pct") pc else pts
+                fit(t, 92f)
+                c.drawText(t, size / 2f, size / 2f - (p.descent() + p.ascent()) / 2, p)
+            }
+            else -> {                                   // two lines: price over % change
+                fit(price, 62f)
+                c.drawText(price, size / 2f, size * 0.47f, p)
+                fit(pc, 62f)
+                c.drawText(pc, size / 2f, size * 0.97f, p)
+            }
+        }
+        return IconCompat.createWithBitmap(bmp)
+    }
+
+    private fun ticker(title: String, text: String, icon: IconCompat? = null, publicText: String = ""): Notification {
+        val small = icon ?: IconCompat.createWithResource(this, R.drawable.ic_stat_ticker)
+        // lock screen with "hide sensitive content": prices only, never P&L
+        val pub = NotificationCompat.Builder(this, CH_TICKER)
+            .setSmallIcon(small)
+            .setContentTitle(title)
+            .setContentText(publicText)
+            .build()
+        return NotificationCompat.Builder(this, CH_TICKER)
+            .setSmallIcon(small)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(pub)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setContentTitle(title)
             .setContentText(text.lineSequence().firstOrNull() ?: "")
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -135,6 +192,7 @@ class MonitorService : Service() {
                 Intent(this, MonitorService::class.java).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             .build()
+    }
 
     private fun openApp(): PendingIntent = PendingIntent.getActivity(this, 0,
         Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -142,14 +200,23 @@ class MonitorService : Service() {
 
     private fun channels() {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CH_TICKER, "Live ticker", NotificationManager.IMPORTANCE_LOW)
-            .apply { description = "BANKNIFTY / NIFTY / VIX, updated every few seconds"; setShowBadge(false) })
+        nm.deleteNotificationChannel("ticker")             // v1 channel: low importance, hidden on lock screens
+        // Default importance (so it shows on the lock screen and as a status-bar icon) but silent.
+        nm.createNotificationChannel(NotificationChannel(CH_TICKER, "Live ticker", NotificationManager.IMPORTANCE_DEFAULT)
+            .apply {
+                description = "BANKNIFTY / NIFTY / VIX in the status bar and on the lock screen, every few seconds"
+                setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            })
         nm.createNotificationChannel(NotificationChannel(CH_ALERTS, "Risk alerts", NotificationManager.IMPORTANCE_HIGH)
             .apply { description = "RED risk alerts, evening setups, EXIT signals on your positions" })
     }
 
     companion object {
-        private const val CH_TICKER = "ticker"
+        private const val CH_TICKER = "ticker_live"
         private const val CH_ALERTS = "alerts"
         private const val TICKER_ID = 1001
         private const val ACTION_STOP = "stop"

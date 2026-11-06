@@ -13,6 +13,10 @@ The Mac app stays in charge of everything: the single Shoonya session (Shoonya a
 | **Risk** | Writer risk monitor for both indices: threat matrix, colour-coded alerts with the exact signals, prohibitions, safe zones, and guidance for your legs. |
 | **FII/DII** | Evening squeeze-loading setup (conditions, track record, exposed side). Positioning read and writing posture. Strike zones. All signals. Recent sessions. |
 
+**Status bar and lock screen:** with the monitor on, the live price is drawn into the notification's status-bar icon (e.g. `57.8K / +0.62`), so it stays visible next to the clock, including on the lock screen.
+* Choose in Settings: BANKNIFTY or NIFTY; price + %, % only, or points.
+* The ticker notification also shows on the lock screen. If your phone hides sensitive content there, the lock-screen version shows prices only, never P&L.
+
 **Market monitor** (a foreground service) does two things:
 * It keeps an ongoing notification like the Mac's menu-bar ticker, refreshed every 5 s, for example `BNF 57,813.15 ▲39.5 (+0.07%)`, with NIFTY, VIX, P&L, ⚠ RED count and ⚑ setup flag.
 * Every 30 s it checks the Mac's alerts and raises a **high-priority notification** for each new one: RED risk alerts, the evening setup, BANKNIFTY breadth warnings, and EXIT on your positions. Each alert notifies once.

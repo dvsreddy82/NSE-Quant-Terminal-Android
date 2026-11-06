@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -63,6 +64,28 @@ fun SettingsScreen(onDone: () -> Unit) {
             OutlinedButton(onClick = { Prefs.save(ctx, server, key); onDone() }) { Text("Done") }
         }
         result?.let { Text(it, fontSize = 13.sp) }
+
+        Text("Status bar & lock screen", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text("With Market monitor on, the live price is drawn into the status-bar icon, so it stays visible at " +
+            "the top of the screen and on the lock screen. Pick what it shows:", color = Pal.muted, fontSize = 13.sp)
+        var iconIndex by remember { mutableStateOf(Prefs.iconIndex(ctx)) }
+        var iconMode by remember { mutableStateOf(Prefs.iconMode(ctx)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("NIFTY BANK" to "BANKNIFTY", "^NSEI" to "NIFTY").forEach { (k, label) ->
+                FilterChip(selected = iconIndex == k, onClick = { iconIndex = k; Prefs.setIcon(ctx, iconIndex, iconMode) },
+                    label = { Text(label) })
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("both" to "57.8K / +0.62", "pct" to "% only", "points" to "Points").forEach { (k, label) ->
+                FilterChip(selected = iconMode == k, onClick = { iconMode = k; Prefs.setIcon(ctx, iconIndex, iconMode) },
+                    label = { Text(label) })
+            }
+        }
+        Text("If the ticker doesn't appear on the lock screen: Settings → Notifications → Lock screen notifications → " +
+            "Show all content (on Tecno / HiOS: Settings → Notifications & status bar → Lock screen), and keep the " +
+            "NSE Quant \"Live ticker\" channel on. Status-bar icons are white on most phones — the price shows, the " +
+            "colour doesn't; the notification itself shows the change in colour.", color = Pal.faint, fontSize = 11.sp)
         Text("Read-only: this app can view data from your Mac, never place orders.", color = Pal.faint, fontSize = 11.sp)
     }
 }
