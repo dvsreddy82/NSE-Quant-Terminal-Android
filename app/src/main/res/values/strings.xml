@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">NSE Quant</string>
+    <string name="widget_desc">BANKNIFTY live price, change, intraday chart and breadth</string>
 </resources>

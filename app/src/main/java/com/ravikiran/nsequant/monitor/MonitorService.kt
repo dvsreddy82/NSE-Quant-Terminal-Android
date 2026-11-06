@@ -27,6 +27,7 @@ import com.ravikiran.nsequant.data.arr
 import com.ravikiran.nsequant.data.d
 import com.ravikiran.nsequant.data.objects
 import com.ravikiran.nsequant.data.s
+import com.ravikiran.nsequant.widget.BnfWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,7 +72,15 @@ class MonitorService : Service() {
 
     private suspend fun tickerLoop() {
         val nm = getSystemService(NotificationManager::class.java)
+        var n = 0
         while (scope.isActive) {
+            if (n++ % 3 == 0 && BnfWidget.hasWidgets(this)) {       // home-screen widget: every ~15 s
+                try {
+                    BnfWidget.render(this, Api.get(this, "/api/banknifty"))
+                } catch (e: Exception) {
+                    BnfWidget.renderError(this, e.message ?: "offline")
+                }
+            }
             try {
                 val t = Api.get(this, "/api/ticker")
                 val q = t.arr("quotes").objects()

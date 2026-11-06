@@ -1,6 +1,7 @@
 package com.ravikiran.nsequant
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -29,6 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,10 +54,18 @@ import com.ravikiran.nsequant.ui.RiskScreen
 import com.ravikiran.nsequant.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
+    private val startTab = mutableStateOf("home")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        intent?.getStringExtra("tab")?.let { startTab.value = it }
         if (Prefs.monitorOn(this)) MonitorService.start(this)
-        setContent { AppTheme { App() } }
+        setContent { AppTheme { App(startTab) } }
+    }
+
+    override fun onNewIntent(intent: Intent) {        // tapped the widget while the app was open
+        super.onNewIntent(intent)
+        intent.getStringExtra("tab")?.let { startTab.value = it }
     }
 }
 
@@ -70,9 +81,10 @@ private val TABS = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun App() {
+private fun App(startTab: MutableState<String>) {
     val ctx = LocalContext.current
-    var tab by rememberSaveable { mutableStateOf("home") }
+    var tab by rememberSaveable { mutableStateOf(startTab.value) }
+    LaunchedEffect(startTab.value) { tab = startTab.value }
     var settings by rememberSaveable { mutableStateOf(!Prefs.configured(ctx)) }
     var monitor by rememberSaveable { mutableStateOf(Prefs.monitorOn(ctx)) }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->

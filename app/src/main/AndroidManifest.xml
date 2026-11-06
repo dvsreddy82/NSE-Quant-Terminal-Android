@@ -27,6 +27,14 @@
             </intent-filter>
         </activity>
 
+        <!-- BANKNIFTY home-screen widget -->
+        <receiver android:name=".widget.BnfWidget" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/bnf_widget_info" />
+        </receiver>
+
         <!-- Market monitor: live BANKNIFTY notification + alerts while the market is open -->
         <service
             android:name=".monitor.MonitorService"

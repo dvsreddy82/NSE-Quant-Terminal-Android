@@ -13,6 +13,11 @@ The Mac app stays in charge of everything: the single Shoonya session (Shoonya a
 | **Risk** | Writer risk monitor for both indices: threat matrix, colour-coded alerts with the exact signals, prohibitions, safe zones, and guidance for your legs. |
 | **FII/DII** | Evening squeeze-loading setup (conditions, track record, exposed side). Positioning read and writing posture. Strike zones. All signals. Recent sessions. |
 
+**Home-screen widget (BANKNIFTY):** long-press the home screen → Widgets → NSE Quant → BANKNIFTY.
+* **Shows:** live price; change in points and %; today's line against the previous close (dotted), green above and red below; day high/low and where price sits in the range; banks up/down and % of weight up; the biggest lifter and dragger in index points.
+* **Sizes:** at 4×2 or larger you get the full view; shrink it to 2×1 for price and change only.
+* **Updates:** every ~15 s while **Market monitor** is on, every 30 minutes otherwise (Android's minimum for widgets), and immediately when you tap ⟳. Tap the widget to open the app on the BANKNIFTY tab.
+
 **Status bar and lock screen:** with the monitor on, the live price is drawn into the notification's status-bar icon (e.g. `57.8K / +0.62`), so it stays visible next to the clock, including on the lock screen.
 * Choose in Settings: BANKNIFTY or NIFTY; price + %, % only, or points.
 * The ticker notification also shows on the lock screen. If your phone hides sensitive content there, the lock-screen version shows prices only, never P&L.
