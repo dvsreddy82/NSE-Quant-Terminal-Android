@@ -37,6 +37,17 @@ fun RiskScreen() {
     Loading(st) { d ->
         val idx = d.obj("indices") ?: JSONObject()
         LazyColumn(contentPadding = PaddingValues(vertical = 6.dp)) {
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    Text("Writer risk monitor", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Pal.text)
+                    Text("Squeeze, put-flush, institutional-divergence and negative-gamma checks for NIFTY / BANKNIFTY " +
+                        "writers, with prohibitions, safe zones, guidance for your legs and your book's risk" +
+                        (d.d("updated")?.takeIf { it > 0 }?.let {
+                            " · updated " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                                .format(java.util.Date((it * 1000).toLong()))
+                        } ?: ""), color = Pal.muted, fontSize = 11.sp)
+                }
+            }
             if (idx.length() == 0) item {
                 Text("The Mac is running the first risk check — this fills in within a minute.", color = Pal.muted,
                     modifier = Modifier.padding(16.dp))

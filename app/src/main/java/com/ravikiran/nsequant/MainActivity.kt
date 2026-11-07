@@ -75,9 +75,9 @@ private data class Tab(val key: String, val label: String, val icon: ImageVector
 
 private val TABS = listOf(
     Tab("home", "Home", Icons.Filled.Home),
-    Tab("banks", "BANKNIFTY", Icons.Filled.Star),
+    Tab("banks", "BNF", Icons.Filled.Star),
     Tab("chain", "Chain", Icons.AutoMirrored.Filled.List),
-    Tab("risk", "Risk", Icons.Filled.Warning),
+    Tab("risk", "Writer risk", Icons.Filled.Warning),
     Tab("fii", "FII/DII", Icons.Filled.Info),
     Tab("global", "Global", Icons.Filled.Place),
 )
@@ -119,7 +119,7 @@ private fun App(startTab: MutableState<String>) {
             if (!settings) NavigationBar(containerColor = Pal.panel2) {
                 TABS.forEach { t ->
                     NavigationBarItem(selected = tab == t.key, onClick = { tab = t.key },
-                        icon = { Icon(t.icon, t.label) }, label = { Text(t.label, fontSize = 10.sp) },
+                        icon = { Icon(t.icon, t.label) }, label = { Text(t.label, fontSize = 10.sp, maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(indicatorColor = Pal.border))
                 }
             }
