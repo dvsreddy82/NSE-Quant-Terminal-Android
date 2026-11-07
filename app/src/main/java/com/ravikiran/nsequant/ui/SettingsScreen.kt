@@ -82,10 +82,9 @@ fun SettingsScreen(onDone: () -> Unit) {
                     label = { Text(label) })
             }
         }
-        Text("If the ticker doesn't appear on the lock screen: Settings → Notifications → Lock screen notifications → " +
-            "Show all content (on Tecno / HiOS: Settings → Notifications & status bar → Lock screen), and keep the " +
-            "NSE Quant \"Live ticker\" channel on. Status-bar icons are white on most phones — the price shows, the " +
-            "colour doesn't; the notification itself shows the change in colour.", color = Pal.faint, fontSize = 11.sp)
+        Text("Status-bar icons are white on most phones — the price shows, the colour doesn't; the notification " +
+            "itself shows the change in colour.", color = Pal.faint, fontSize = 11.sp)
+        LockScreenCheck()
         Text("Read-only: this app can view data from your Mac, never place orders.", color = Pal.faint, fontSize = 11.sp)
     }
 }
